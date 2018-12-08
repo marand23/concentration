@@ -645,14 +645,10 @@ namespace Concentration
                 F_z0_z2();
                 sigmaz();
                 find_concentration(this.t);
-                Environment.Exit(1);
-
+                
                      put_to_file();
-                  for (int i = 0; i < 10; i++)
-                   {
+                 Environment.Exit(1);
 
-                     sw1.WriteLine(sigmaz2[i]+ "   ");
-                } 
 
 
             }
