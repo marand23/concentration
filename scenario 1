@@ -1,0 +1,683 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.IO;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Collections;
+namespace Concentration
+{
+    public partial class Scenarios_2 : Form
+    {
+        double Q;
+        double gamma_mk;
+        double Q_tr;
+        double P_2;
+        double P_0;
+        double T_2 = 275;
+        double V_2;
+        const int map_pnts = 200;
+        double gamma = 1.34;
+        double h = 30;
+        double M_m = 17;
+        double s;
+        double scale = 1;
+        double c_1, c_2, d_1, d_2, a_1, a_2, b_1, b_2, c_3;
+        double t_otc;
+        double x_center = 745;
+        double y_center = 0;
+        double t;
+        double U;
+        double R = 8.31;
+        double delta_X=7.45;
+        double delta_y = 5;
+
+        double[,] x0 = new double[map_pnts, map_pnts];//matrix for x coordinates of the map
+        double[,] y0 = new double[map_pnts, map_pnts];//matrix for y coordinaes of the map
+        double[,] x1 = new double[map_pnts, map_pnts];//matrix for x coordinaes of the map with scale 
+        double[,] y1 = new double[map_pnts, map_pnts];//matrix for y coordinates of the map with scale 
+        double[,] Z0 = new double[map_pnts, map_pnts];// surface rougness matrix
+        double[] z2 = new double[10];//matrix for the z coordinates
+        double[,] x2 = new double[map_pnts, map_pnts];//x coordinates in 
+        double[,] y2 = new double[map_pnts, map_pnts];
+        double[,] GZ2 = new double[map_pnts, map_pnts];
+        double[,] con_tion = new double[map_pnts, map_pnts];
+        double[,] F_z0_z2_m = new double[map_pnts, map_pnts];
+        double[,] sigmaz2 = new double[map_pnts, map_pnts];//sigma z matrix 
+        double[,] sigmay2 = new double[map_pnts, map_pnts];//sigma y matrix 
+        double[,] sigmax2 = new double[map_pnts, map_pnts];//sigma x matrix 
+        double[,] G_H = new double[map_pnts, map_pnts];
+
+        StreamWriter sw = new StreamWriter("E:\\Concentration.txt");
+        StreamWriter sw1 = new StreamWriter("E:\\Test2.txt");
+        void Fill_Vectores()
+        {
+
+
+
+
+            for (int i = 0; i < map_pnts; i++)
+            {
+                for (int j = 0; j < map_pnts; j++)
+                {
+                    x0[i, j] = (10+j*delta_X);
+
+                    y0[i, j] = (-500+i*delta_y);
+
+                }
+            }
+        }
+        void Fill_Matrix_1()
+        {
+
+            for (int i = 0; i < map_pnts; i++)
+            {
+                for (int j = 0; j < map_pnts; j++)
+                {
+                    x1[i, j] = x0[i, j] * scale;//scale*x_center-
+                    y1[i, j] = y0[i, j] * scale;//-scale*y_center;
+
+                }
+            }
+        }
+        void fill_Z0()
+        {
+            for (int i = 0; i < map_pnts; i++)
+            {
+                for (int j = 0; j < map_pnts; j++)
+                {
+                    Z0[i, j] = 1;
+                }
+            }
+        }
+
+
+        void set_gas()
+        {
+            this.gamma = 1.34;
+        }
+
+        public Scenarios_2()
+        {
+
+            InitializeComponent();
+        }
+
+         void define_Z0()
+          {
+             if (comboBox2.SelectedIndex == 0)
+            {
+                this.Z0 = 0.1 / 100;
+
+             }
+            else if (comboBox2.SelectedIndex == 1)
+            {
+              this.Z0 = 0.1 / 100;
+          }
+           else if (comboBox2.SelectedIndex == 2)
+           {
+              this.Z0 = 1 / 100;
+
+           }
+          else if (comboBox2.SelectedIndex == 3)
+           {
+                this.Z0 = 5 / 100;
+            }
+            else if (comboBox2.SelectedIndex == 4)
+            {
+               this.Z0 = 12 / 100;
+           }
+           else if (comboBox2.SelectedIndex == 5)
+           {
+           this.Z0 = 40 / 100;
+
+         }
+          else if (comboBox2.SelectedIndex == 6)
+          {
+
+             this.Z0 = 1;
+            }
+          }
+
+
+        double find_alfa(double x, double y)
+        {
+            if (x > 0 && y >= 0)
+            {
+                return Math.Atan(y / x);
+
+            }
+            else if (x == 0 && y > 0)
+            {
+                return Math.PI / 2;
+            }
+            else if (x > 0 && y < 0)
+            {
+                return (Math.Atan(y / x)) + 2 * Math.PI;
+            }
+            else if (x == 0 && y < 0)
+            {
+                return 3 * Math.PI / 2;
+            }
+            else if (x < 0)
+            {
+                return (Math.Atan(y / x)) + Math.PI;
+            }
+            else return 0;
+
+        }
+
+
+
+        public double find_beta(double x, double y)
+        {
+            if ((find_alfa(x, y) - gamma_mk) > 0)
+            {
+                return (find_alfa(x, y) - gamma_mk);
+            }
+            else if ((find_alfa(x, y) - gamma_mk) < 0)
+            {
+                return (2 * Math.PI - find_alfa(x, y) + gamma_mk);
+            }
+            else return 0;
+        }
+
+        public double find_R(double x, double y)
+
+        {
+            return Math.Sqrt(Math.Pow(y, 2) + Math.Pow(x, 2));
+
+        }
+       // ox, oy = origin
+    x2 = ox + np.cos(gamma_mk) * (x1 - ox) - np.sin(gamma_mk) * (y1 - oy)#find_R(x1,y1)
+    y2 =oy +  np.sin(gamma_mk) * (x1 -ox ) + np.cos(gamma_mk) * (y1 - oy)#find_R(x1,y1)
+    return (x2, y2)
+        public void fill_2y2z2()
+        {
+            for (int i = 0; i < map_pnts; i++)
+            {
+                for (int j = 0; j < map_pnts; j++)
+                {
+                    x2[i, j] = x_center + Math.Cos(gamma_mk) * (x1[i, j] - x_center) - Math.Sin(gamma_mk) * (y1[i, j] - y_center);
+                    y2[i, j] = y_center + Math.Sin(gamma_mk) * (x1[i, j] - x_center) + Math.Cos(gamma_mk) * (y1[i, j] - y_center);
+                }
+            }
+        }
+
+        public void fill_z2()
+        {
+            for (int i = 0; i < 1; i++)
+            {
+                z2[i] = 0;
+            }
+        }
+        public void sigmax()
+        {
+            for (int i = 0; i < map_pnts; i++)
+            {
+                for (int j = 0; j < map_pnts; j++)
+                {
+                       if ((0.08 * x2[i, j]) / Math.Sqrt(1 + 0.0001 * x2[i, j]) >= 0)
+                       {
+
+                    sigmax2[i, j] = (c_3 * x0[i, j]) / Math.Sqrt(1 + 0.0001 * x0[i, j]);
+                       }
+                       else
+                        {
+                        sigmax2[i, j] = -((0.08 * x2[i, j]) / Math.Sqrt(1 + 0.0001 * x2[i, j]));
+                       }
+                }
+            }
+        }
+
+        public void sigmay()
+        {
+            for (int i = 0; i < map_pnts; i++)
+            {
+                for (int j = 0; j < map_pnts; j++)
+                {
+                    if (((x2[i, j])) / this.U >= 600)
+                    {
+                        sigmay2[i, j] = sigmax2[i, j] * ((220.2 * 60 + x2[i, j] / U) / (220.2 * 60 + 600));
+                            }
+
+
+
+
+                    else 
+                    {
+
+                        sigmay2[i, j] = sigmax2[i, j];
+                    }
+                }
+            }
+        }
+
+
+        void find_g_x()
+        {
+            for (int i = 0; i < map_pnts; i++)
+            {
+                for (int j = 0; j < map_pnts; j++)
+                {
+                    GZ2[i, j] = (this.a_1 * Math.Pow(x2[i, j], b_1)) / (1 + a_2 * Math.Pow(x2[i, j], b_2));
+                }
+
+            }
+        }
+
+
+        void F_z0_z2()
+
+        {
+
+            for (int i = 0; i < 1; i++)
+            {
+
+
+                  if (Z0[i,j]<0.1)
+                 {
+                    F_z0_z2_m[i]= Math.Log((c_1 * Math.Pow(z2[i], d_1) * (1 + c_2 * Math.Pow(z2[i], d_2))));
+                  }
+                  else if (Z0[i, j] >= 0.1)
+                     {
+
+
+                for (int j = 0; j < map_pnts; j++)
+                {
+                    F_z0_z2_m[i, j] = Math.Log(c_1 * Math.Pow(x2[i, j], d_1) / (1 + c_2 * Math.Pow(x2[i, j], d_2)));
+                }
+
+
+
+            }
+        }
+
+
+
+
+        void sigmaz()
+        {
+            for (int i = 0; i < map_pnts; i++)
+            {
+                for (int j = 0; j < map_pnts; j++)
+                {
+
+                       if (define_atm_type() == 1 && F_z0_z2_m[i, j] * GZ2[i, j] > 640)
+                      {
+                          sigmaz2[i, j] = 640;
+
+                      }
+
+                     if (define_atm_type() == 2 && F_z0_z2_m[i, j] * GZ2[i, j] > 400)
+                       {
+                          sigmaz2[i, j] = 400;
+                      }
+
+                       if (define_atm_type() == 3 && F_z0_z2_m[i, j] * GZ2[i, j] > 220)
+                        {
+                    sigmaz2[i, j] = 0.06*x0[i,j]/Math.Sqrt(1+0.00015*x0[i,j]);
+                }
+                    else sigmaz2[i, j] = F_z0_z2_m[i, j] * GZ2[i, j];
+            }
+            
+
+
+            }
+            
+        
+
+
+
+            int define_atm_type()
+            {
+                if ((U <= 2 || (2 < U && U <= 3) || (3 < U && U <= 5)) && comboBox3.SelectedIndex == 0)
+                {
+                    return 1;
+                }
+                else if ((5 < U && U <= 6) && comboBox3.SelectedIndex == 0 && comboBox4.SelectedIndex == 0)
+                {
+                    return 1;
+                }
+                else if ((5 < U && U <= 6) && (comboBox3.SelectedIndex == 0 && comboBox4.SelectedIndex == 1))
+                {
+                    return 2;
+                }
+                else if ((5 < U && U <= 6) && (comboBox3.SelectedIndex == 0 && comboBox4.SelectedIndex == 2))
+                {
+                    return 2;
+                }
+                else if (U > 6)
+                {
+                    return 2;
+                }
+                else if (((U <= 2) || (2 < U && U <= 3)) && comboBox3.SelectedIndex == 1)
+                {
+                    return 3;
+                }
+                else if ((5 < U && U <= 6) && comboBox3.SelectedIndex == 1)
+                {
+                    return 2;
+                }
+                else if ((3 < U && U <= 5) && (comboBox3.SelectedIndex == 1) && (comboBox4.SelectedIndex == 0))
+                {
+                    return 2;
+                }
+                else if ((3 < U && U <= 5) && (comboBox3.SelectedIndex == 1) && (comboBox4.SelectedIndex == 1))
+                {
+                    return 3;
+                }
+                else return 0;
+
+
+            }
+            void define_coff()
+            {
+                if (define_atm_type() == 1)
+                {
+                    this.a_1 = 0.112;
+                    this.a_2 = 0.000920;
+                    this.b_1 = 0.920;
+                    this.b_2 = 0.718;
+                    this.c_3 = 0.11;
+
+                }
+                else if (define_atm_type() == 2)
+                {
+                    this.a_1 = 0.098;
+                    this.a_2 = 0.00135;
+                    this.b_1 = 0.889;
+                    this.b_2 = 0.688;
+                    this.c_3 = 0.08;
+
+
+                }
+                else if (define_atm_type() == 3)
+                {
+                    this.a_1 = 0.0609;
+                    this.a_2 = 0.00196;
+                    this.b_1 = 0.895;
+                    this.b_2 = 0.684;
+                    this.c_3 = 0.06;
+
+                }
+
+            }
+            void define_coff_2()
+            {
+
+
+
+
+
+                   if (Z0[i,j] == 1 / 100 || Z0[i,j] == 0.1 / 100)
+                  {
+                    this.c_1 = 1.56;
+                      this.c_2 = 0.000625;
+                      this.d_1 = 0.048;
+                    this.d_2 = 0.45;
+
+                   }
+                   else if (Z0[i,j] == 5 / 100)
+                    {
+                    this.c_1 = 2.02;
+                     this.c_2 = 0.000776;
+                    this.d_1 = 0.027;
+                   this.d_2 = 0.37;
+                 }
+                  else if (Z0[i,j] == 12 / 100)
+                {
+
+                   this.c_1 = 2.73;
+                    this.c_2 = 0;
+                    this.d_1 = 0;
+                    this.d_2 = 0;
+                  }
+                  else if (Z0[i,j] == 40 / 100)
+                 {
+                   this.c_1 = 5.16;
+                    this.c_2 = 0.0538;
+                    this.d_1 = -0.098;
+                   this.d_2 = 0.225;
+                 }
+                  else if (Z0[i,j] == 1)
+                   {
+                this.c_1 = 7.73;
+                this.c_2 = 0.000233;
+                this.d_1 = -0.096;
+                this.d_2 = 0.6;
+                 }
+
+            }
+
+            double q_2_gi()
+            {
+
+
+                return 0.8 * s * Math.Min(Math.Sqrt((2 * gamma / (gamma - 1) * P_2 * ro_2()) * (Math.Pow(P_0 / P_2, 2 / gamma) - Math.Pow(P_0 / P_2, (gamma + 1) / gamma))), Math.Sqrt(P_2 * ro_2() * gamma * Math.Pow(2 / (gamma + 1), (gamma + 1) / gamma - 1)));
+
+
+
+            }
+
+            double min_find(double x1, double x2, double x3)
+            {
+                if (x1 < x2 && x1 < x3) return x1;
+                else if (x2 < x1 && x2 < x3) return x2;
+                else if (x3 < x1 && x3 < x2) return x3;
+                else return 0;
+            }
+
+            double t_ji()
+            {
+                if (this.Q != 0)
+                {
+                    return ((this.Q + this.Q_tr) / q_2_gi());
+                }
+                else return Math.Min((this.M_m * this.V_2 * this.P_2) / (this.R * (this.T_2 + 273.15) * this.q_2_gi()), this.t_otc + (this.Q_tr) / this.q_2_gi());
+
+
+            }
+            double ro_2()
+            {
+                return (M_m / R) * (P_2 / (T_2 + 273.15));
+            }
+
+            double ro_gi_2()
+
+            {
+
+                return ro_2() * Math.Pow((this.P_0 / this.P_2), 1 / this.gamma);
+
+            }
+
+
+            double R_j()
+            {
+                return Math.Sqrt(q_2_gi() / (Math.PI * ro_gi_2() * this.U));
+
+
+
+            }
+            double x_gr(double tt)
+            {
+                define_coff();
+
+                return ((Math.Pow(10, -4) * Math.Pow(tt, 2) * Math.Pow(U, 2) + Math.Sqrt(8 * Math.PI * Math.Pow(c_3, 2) * Math.Pow(tt, 2) * Math.Pow(U, 2)
+                    + Math.Pow(10, -8) * Math.Pow(tt, 4) * Math.Pow(U, 4))) / 4 * Math.PI * Math.Pow(c_3, 2));
+
+
+            }
+            double G_3(int i, int j, int k, double t)
+            {
+                return ((Math.Exp(-(x2[i, j] - U * t) / (2 * Math.Pow(sigmax2[i, j], 2)) - ((Math.Pow(y2[i, j], 2)) / (2 * Math.Pow(sigmay2[i, j], 2)))))) *
+                   ((Math.Exp(-Math.Pow((z2[k] - h), 2) / 2 * Math.Pow(sigmaz2[i, j], 2))) + (Math.Exp(-Math.Pow((z2[k] + h), 2) / 2 * Math.Pow(sigmaz2[i, j], 2))));
+
+            }
+
+
+            void c_button_Click_1(object sender, EventArgs e)
+            {
+                this.Close();
+            }
+            void label13_Click(object sender, EventArgs e)
+            {
+
+            }
+
+            void saveFileDialog1_FileOk(object sender, CancelEventArgs e)
+            {
+
+            }
+
+
+            void find_concentration(double t)
+            {
+                for (int k = 0; k < 1; k++)
+                {
+                    for (int i = 0; i < map_pnts; i++)
+                   {
+                        for (int j = 0; j < map_pnts; j++)
+                        {
+                            if (t <= 0)
+                            {
+                               con_tion[i, j] = 0;
+                            }
+                            else if ((x2[i, j]) <= x_gr(t_ji()) && t > (x2[i, j]) / this.U)
+                            {
+                                con_tion[i, j] = ((q_2_gi() * calc_G_H(i, j, k)) / ((this.U * (Math.Pow(2 * Math.PI * R_j(), 2) * t_ji() * U)) + 2 * Math.PI * sigmay2[i, j] * sigmaz2[i, j]));
+  }
+                            else if ((((x2[i, j]) <= x_gr(t_ji()) && t <= Math.Abs(x2[i, j]) / this.U)) || (t <= (x2[i, j]) / this.U + t_ji()))
+
+
+                            {
+                                con_tion[i, j] = 0;
+                           }
+                            else if ((x2[i, j]) > x_gr(t_ji()) && t > 0)
+                           {
+                                con_tion[i, j] = ((q_2_gi() * t_ji() / ((2 * Math.PI * Math.Pow(R_j(), 2) * t_ji() * this.U) + Math.Pow(2 * Math.PI, 1.5) * sigmax2[i, j] * sigmaz2[i, j] * sigmay2[i, j])) * G_3(i, j, k, t));
+                            }
+
+                            con_tion[i, j] = (q_2_gi() / (2 * Math.PI * sigmay2[i, j] * sigmaz2[i, j] * U)) * Math.Exp(-Math.Pow(y0[i, j], 2) / Math.Pow(sigmay2[i, j], 2)) * (Math.Exp(-Math.Pow(z2[k] - h, 2) / Math.Pow(sigmaz2[i, j], 2)) + Math.Exp(-Math.Pow(z2[k] + h, 2) / Math.Pow(sigmaz2[i, j], 2)));
+                            sw.WriteLine((x0[i, j]) + "  " + (y0[i, j]) + "    " + con_tion[i, j]);
+                       
+
+                    }
+                }
+                }
+            }
+            void find_toxic_dose(double t)
+            {
+
+            }
+            double calc_G_H(int i, int j, int k)
+            {
+            return Math.Exp(-Math.Pow(y2[i, j], 2) / (2 * Math.Pow(sigmay2[i, j], 2))) * ((-Math.Exp(Math.Pow(h - z2[k], 2))) / (2 * Math.Pow(sigmaz2[i, j], 2)) + Math.Exp(-Math.Pow(h + z2[k], 2) / (2 * Math.Pow(sigmaz2[i, j], 2))));
+            }
+            void define_weather_con()
+            {
+
+                this.t = Double.Parse(this.T_time.Text);
+                this.U = double.Parse(this.T_Vel.Text);
+                this.gamma_mk = double.Parse(this.T_D.Text) * Math.PI / 180;
+
+
+            }
+
+
+
+            void define_gas_char()
+            {
+
+            }
+              void put_to_file()
+            {
+             sw.WriteLine("Координаты,Консентрации,Токсодоза");
+             sw.WriteLine("X" + "  " + "Y" + "  " + "Z" + "          " + "C");
+            for (int k = 0; k < 10; k++)
+             {
+                for (int i = 0; i < 100; i++)
+               {
+                for (int j = 0; j < 100; j++)
+
+             sw.WriteLine(x0[i, j] + "  " + y0[i, j] + "  " + z2[k] + "          " + con_tion[i, j]*Math.Pow(10,6));
+              }
+            }
+             }
+
+
+
+
+            void set_variables()
+            {
+                this.P_0 = double.Parse(this.T_P0.Text);
+                this.P_2 = double.Parse(this.T_P2.Text);
+                this.Q = double.Parse(this.T_Q.Text);
+                this.Q_tr = double.Parse(this.T_Qtr.Text);
+                this.t_otc = double.Parse(this.T_otc.Text);
+                this.s = double.Parse(this.T_S.Text);
+
+            }
+
+
+            void o_button_Click(object sender, EventArgs e)
+            {
+                define_atm_type();
+
+                set_variables();
+                define_coff_2();
+                define_weather_con();
+                define_coff();
+                Fill_Vectores();
+                fill_Z0();
+                Fill_Matrix_1();
+                fill_z2();
+
+                set_variables();
+                fill_2y2z2();
+                sigmax();
+                sigmay();
+                find_g_x();
+                F_z0_z2();
+                sigmaz();
+                find_concentration(this.t);
+                Environment.Exit(1);
+
+                     put_to_file();
+                  for (int i = 0; i < 10; i++)
+                   {
+
+                     sw1.WriteLine(sigmaz2[i]+ "   ");
+                } 
+
+
+            }
+
+        }
+
+    }
+
+
+        
+        
+
+        
+
+        
+        
+
+
+    
+
+
+    
+            
+        
+    
+       
+    
+
